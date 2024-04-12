@@ -337,16 +337,17 @@ else
     exit 1
   fi
   memcache_servers=$MEMCACHE_SERVER
-
-  # Using mcrouter?
-  if [ `echo $memcache_servers |grep -c ,` -eq 0 -a `mcrouter_get_servers | grep -c .` -gt 0 ]
-  then
-    FLAG_MCROUTER=1
-    mcrouter_server="$memcache_servers"
-    memcache_servers=`mcrouter_get_servers`
-    verbose "Detected mcrouter at localhost:11211, available memcache instances: $memcache_servers"
-  fi
 fi
+
+# Using mcrouter?
+if [ `echo $memcache_servers |grep -c ,` -eq 0 -a `mcrouter_get_servers | grep -c .` -gt 0 ]
+then
+  FLAG_MCROUTER=1
+  mcrouter_server="$memcache_servers"
+  memcache_servers=`mcrouter_get_servers`
+  verbose "Detected mcrouter at localhost:11211, available memcache instances: $memcache_servers"
+fi
+
 verbose "Using memcache server list: $memcache_servers"
 
 if [ ! -r $DUMP_FOLDER ]
