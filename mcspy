@@ -385,7 +385,7 @@ then
       unset($mc);
 
       if (!$item) continue;
-      echo json_encode($item, JSON_PRETTY_PRINT) . PHP_EOL;
+      print_r($item);
     }
   ' "$memcache_servers" "$GREPSTRING"
   exit 0
@@ -503,7 +503,7 @@ then
           if ($data === false) {
             continue;
           }
-          $data = json_encode($data, JSON_PRETTY_PRINT);
+          $data = print_r($data, true);
           if (strpos($data, $search_string) === false) {
             continue;
           }
@@ -548,11 +548,11 @@ then
           while ($line = fgets($pipes[1])) {
               // Process the line
               $line = trim($line);
-              $dest_file = "$dest_dir/{$line}.json";
+              $dest_file = "$dest_dir/{$line}";
               // Get item from memcache & store it
               $item = $mc->get($line);
               if ($item !== false) {
-                file_put_contents($dest_file, json_encode($item, JSON_PRETTY_PRINT));
+                file_put_contents($dest_file, print_r($item, true));
               }
 
               $num_items++;
