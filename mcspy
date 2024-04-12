@@ -207,6 +207,7 @@ GREPSTRING="."
 FLAG_REFRESH=0
 FLAG_QUIET=0
 FLAG_YES=0
+FLAG_MCROUTER=0
 COMMAND=""
 ok=1
 DUMP_FOLDER=$default_dump_folder
@@ -316,7 +317,7 @@ then
 fi
 
 function mcrouter_get_servers() {
-  printf "get __mcrouter__.preprocessed_config\nquit\n" | nc -v -w1 -q1 "localhost" "11211" 2>&1 2>/dev/null |grep 11211 |cut -f2 -d'"' |cut -f1,2 -d: | tr -s '\012\015' ' '
+  printf "get __mcrouter__.preprocessed_config\nquit\n" | nc -v -w1 -q1 "localhost" "11211" 2>&1 2>/dev/null |grep 11211 |cut -f2 -d'"' |cut -f1,2 -d: | paste -s -d' '
 }
 
 function memcache_server_split_host_port() {
@@ -328,20 +329,23 @@ function memcache_server_split_host_port() {
 if [ "${MEMCACHE_SERVER:-x}" = "x" ]
 then
   memcache_servers=localhost:11211
-  # Using mcrouter?
-  if [ `mcrouter_get_servers | grep -c .` -gt 0 ]
-  then
-    memcache_servers=`mcrouter_get_servers`
-    verbose "Detected mcrouter at localhost:11211, available memcache instances: $memcache_servers"
-  fi
 else
   # Validate format
-  if [ `echo "$MEMCACHE_SERVER" | egrep -c '^[1-9][0-9]*\.[0-9]*\.[0-9]*\.[0-9]*:[0-9][0-9][0-9]*'` -eq 0 ]
+  if [ `echo "$MEMCACHE_SERVER" | egrep -c '^[1-9][0-9]*\.[0-9]*\.[0-9]*\.[0-9]*:[0-9][0-9][0-9]*( [0-9\.\:]*|)$'` -eq 0 ]
   then
     show_error "ERROR: Bad memcache server list \"$MEMCACHE_SERVER\"."
     exit 1
   fi
   memcache_servers=$MEMCACHE_SERVER
+
+  # Using mcrouter?
+  if [ `echo $memcache_servers |grep -c ,` -eq 0 -a `mcrouter_get_servers | grep -c .` -gt 0 ]
+  then
+    FLAG_MCROUTER=1
+    mcrouter_server="$memcache_servers"
+    memcache_servers=`mcrouter_get_servers`
+    verbose "Detected mcrouter at localhost:11211, available memcache instances: $memcache_servers"
+  fi
 fi
 verbose "Using memcache server list: $memcache_servers"
 
@@ -364,11 +368,15 @@ tmp_stats="$DUMP_FOLDER/memcache-stats"
 if [ $COMMAND = "dump:item" ]
 then
   verbose "Dumping item $GREPSTRING"
+  if [ $FLAG_MCROUTER -eq 1 ]
+  then
+    memcache_servers=$mcrouter_server
+  fi
   php -r '
     // Split memcache server list
     $servers = explode(" ", $argv[1]);
     foreach ($servers as $server) {
-      #echo "-- Item from server $server --" . PHP_EOL;
+      file_put_contents("php://stderr","-- Item from server $server --" . PHP_EOL);
       list($host, $port) = explode(":", $server);
       $mc = new Memcached;
       $mc->addServer($host, $port);
