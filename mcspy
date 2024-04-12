@@ -598,7 +598,7 @@ then
   then
     (printf "Slab\tPrefix\tBin\tId\n"; cat $dumpfile) | column -t
   else
-    (printf "Slab\tPrefix\tBin\tId\n"; egrep --color "^|$GREPSTRING" $dumpfile) | column -t
+    (printf "Slab\tPrefix\tBin\tId\n"; egrep --color "$GREPSTRING" $dumpfile) | column -t
   fi
   exit 0
 fi
