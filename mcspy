@@ -258,7 +258,7 @@ do
       GREPSTRING=`echo "$1" |cut -f2 -d=`
       ;;
     --servers=* | --server=*)
-      MEMCACHE_SERVER=`echo "$1" |cut -f2 -d=`
+      MEMCACHE_SERVER=`echo "$1" |cut -f2 -d= | tr -s ',' ' '`
       ;;
     --refresh | --cleanup)
       FLAG_REFRESH=1
@@ -311,7 +311,7 @@ then
 fi
 
 function mcrouter_get_servers() {
-  printf "get __mcrouter__.preprocessed_config\nquit\n" | nc -v -w1 -q1 "localhost" "11211" 2>&1 2>/dev/null |grep 11211 |cut -f2 -d'"' |cut -f1,2 -d:
+  printf "get __mcrouter__.preprocessed_config\nquit\n" | nc -v -w1 -q1 "localhost" "11211" 2>&1 2>/dev/null |grep 11211 |cut -f2 -d'"' |cut -f1,2 -d: | tr -s '\012\015' ' '
 }
 
 function memcache_server_split_host_port() {
@@ -331,7 +331,7 @@ then
   fi
 else
   # Validate format
-  if [ `echo "$MEMCACHE_SERVER" | egrep -c '^[1-9][0-9]*\.[0-9]*\.[0-9]*\.[0-9]*:[0-9][0-9]*$'` -eq 0 ]
+  if [ `echo "$MEMCACHE_SERVER" | egrep -c '^[1-9][0-9]*\.[0-9]*\.[0-9]*\.[0-9]*:[0-9][0-9][0-9]*'` -eq 0 ]
   then
     show_error "ERROR: Bad memcache server list \"$MEMCACHE_SERVER\"."
     exit 1
