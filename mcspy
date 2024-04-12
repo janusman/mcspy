@@ -326,10 +326,8 @@ then
   # Using mcrouter?
   if [ `mcrouter_get_servers | grep -c .` -gt 0 ]
   then
-    show_warn "Detected mcrouter at localhost:11211, available memcache instances:"
-    mcrouter_get_servers |paste -d, -s
-    # Pick first one
     memcache_servers=`mcrouter_get_servers`
+    verbose "Detected mcrouter at localhost:11211, available memcache instances: $memcache_servers"
   fi
 else
   # Validate format
@@ -379,7 +377,7 @@ then
   exit 0
 fi
 
-if [ $FLAG_REFRESH -eq 1 -o ! -s $tmp_dump -o -s $tmp_dump ]
+if [ $COMMAND != "report:stats" -a $FLAG_REFRESH -eq 1 -o ! -s $tmp_dump -o -s $tmp_dump ]
 then
   verbose "Dumping memcache data to file $tmp_dump"
   rm -f $tmp_dump 2>/dev/null
