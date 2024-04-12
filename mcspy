@@ -1,9 +1,6 @@
 #!/bin/bash
-# Memcache analyzer that understands Drupal
+# Memcache data analyzer that understands Drupal and mcrouter.
 set +x
-
-# TODO:
-# * Always assume multiple memcache servers
 
 # Constants
 # See http://linuxtidbits.wordpress.com/2008/08/11/output-color-on-bash-scripts/
@@ -25,7 +22,7 @@ cd $SCRIPT_FOLDER
 default_dump_folder="/tmp/mcspy-dump"
 
 function cleanup() {
-  echo "Cleaning up temporary files"
+  verbose "Cleaning up temporary files"
   rm 2>/dev/null $tmp_parsed_prefix $tmp_stats
 }
 
@@ -54,8 +51,8 @@ function show_crosstab() {
     totals_exclude="${7:-x}"
   fi
 
-  echo "Crosstab: number of items by $header_cols/$header_rows"
-  echo "-------------------------------------------------------------"
+  echo "${COLOR_GREEN}Crosstab: number of items by $header_cols/$header_rows"
+  echo "-------------------------------------------------------------${COLOR_NONE}"
   (cat $input_file |awk -v sum_field=$sum_field -v method=${method} -v colfield=$colfield -v rowfield=$rowfield -v header_cols="$header_cols" -v header_rows="$header_rows" -v totals_exclude=",$totals_exclude," '
   function track(col,row,val) {
     #print col row val;
@@ -180,11 +177,12 @@ Inspects memcache usage by Drupal.
 Usage: $0 command [arguments/flags]
 
 Commands:
- report:drupal           Count items according to Drupal.
- report:stats            Report memcache slab/item statistics.
- dump:keys               Dump memcache keys.
- dump:contents           Dump the memcache items, each into a single file, onto the output folder (see --dump-folder)
- dump:item               Fetches and dumps a single item from memcache.
+ report:drupal              Count items per slab and per Drupal multisite (memcache_key_prefix). Alias: report
+ report:stats [keypattern]  Report memcache slab/item statistics. Alias: stats
+ dump:keys [keypattern]     Dump memcache keys. Alias: keys
+ dump:contents              Dump the memcache items, each into a single file, onto the output folder (see --dump-folder)
+ dump:item {key}            Fetches and dumps a single item from memcache. Alias: item
+ deep-search {string}       Scans all memcache items searching for 'string'. Alias: deep
 
 Optional arguments:
 --dump-folder=[file]      Specify the dump folder path. Default: $default_dump_folder
@@ -208,6 +206,7 @@ DUMP_FILE=""
 GREPSTRING="."
 FLAG_REFRESH=0
 FLAG_QUIET=0
+FLAG_YES=0
 COMMAND=""
 ok=1
 DUMP_FOLDER=$default_dump_folder
@@ -232,6 +231,9 @@ do
   # Special cases
     --)
       break
+      ;;
+    deep-search | deep-scan | deep)
+      COMMAND=deep-search
       ;;
     report:drupal | report)
       COMMAND=report:drupal
@@ -268,6 +270,9 @@ do
       ;;
     --raw )
       FLAG_RAW=1
+      ;;
+    --yes | -y )
+      FLAG_YES=1
       ;;
     --*)
       # error unknown (long) option $1
@@ -358,40 +363,44 @@ tmp_stats="$DUMP_FOLDER/memcache-stats"
 # Dump a single item
 if [ $COMMAND = "dump:item" ]
 then
-  echo "Dumping item $GREPSTRING"
-  echo "-------------------------------------"
-  echo ""
+  verbose "Dumping item $GREPSTRING"
   php -r '
     // Split memcache server list
     $servers = explode(" ", $argv[1]);
     foreach ($servers as $server) {
-      echo "-- Item from server $server --" . PHP_EOL;
+      #echo "-- Item from server $server --" . PHP_EOL;
       list($host, $port) = explode(":", $server);
       $mc = new Memcached;
       $mc->addServer($host, $port);
-      print_r($mc->get($argv[2]));
+      $item = $mc->get($argv[2]);
       unset($mc);
-      echo PHP_EOL;
+
+      if (!$item) continue;
+      echo json_encode($item, JSON_PRETTY_PRINT) . PHP_EOL;
     }
-  ' "$memcache_servers" "$GREPSTRING" | more
+  ' "$memcache_servers" "$GREPSTRING"
   exit 0
 fi
 
-if [ $COMMAND != "report:stats" -a $FLAG_REFRESH -eq 1 -o ! -s $tmp_dump -o -s $tmp_dump ]
+if [ "$COMMAND" != "deep-search" -o "$COMMAND" != "report:stats" ]
 then
-  verbose "Dumping memcache data to file $tmp_dump"
-  rm -f $tmp_dump 2>/dev/null
+  if [ $FLAG_REFRESH -eq 1 -o ! -s $tmp_dump ]
+  then
+    verbose "Dumping list of all memcache keys to file $tmp_dump"
+    rm -f $tmp_dump 2>/dev/null
 
-  for server in $memcache_servers
-  do
-    memcache_server_split_host_port $server
-    verbose "  Server $memcache_server_host port $memcache_server_port"
-    # Gather data from memcache
-    for i in {1..42}
+    for server in $memcache_servers
     do
-      printf "stats cachedump $i 0\nquit\n" | nc $memcache_server_host $memcache_server_port | grep "$GREPSTRING" | grep -v "END" | awk '{ print "SLAB='$i' " $0 }' >>$tmp_dump
+      memcache_server_split_host_port $server
+      verbose "  ... server $memcache_server_host port $memcache_server_port"
+      # Gather data from memcache
+      for i in {1..42}
+      do
+        printf "stats cachedump $i 0\nquit\n" | nc $memcache_server_host $memcache_server_port | grep -v "END" | awk '{ print "SLAB='$i' " $0 }' >>$tmp_dump
+      done
     done
-  done
+    verbose "  Done."
+  fi
 fi
 
 if [ ! -s $tmp_dump ]
@@ -443,6 +452,61 @@ function parse_dump() {
   }'
 }
 
+if [ $COMMAND = "deep-search" ]
+then
+  if [ "${GREPSTRING:-x}" = "." -o "${GREPSTRING:-x}" = x ]
+  then
+    show_error "Need to specify a search string"
+    exit 1
+  fi
+  if [ `echo "$GREPSTRING" |wc -c` -lt 4 ]
+  then
+    show_error "Search string must be 4 or more characters."
+    exit 1
+  fi
+
+  if [ $FLAG_YES -eq 0 ]
+  then
+    show_warn "** NOTE: THIS OPERATION CAN TAKE A LONG TIME AS IT TRAVERSES ALL THE MEMCACHE ITEMS"
+    show_warn "   ARE you sure you want to continue? (ENTER to continue, CTRL-C to quit)"
+    read dummy
+  fi
+
+  verbose "Traversing all memcache items for '$GREPSTRING'..." >&2
+
+  php -r '
+    $search_string = $argv[2];
+
+    // Split memcache server list
+    $servers = explode(" ", $argv[1]);
+    foreach ($servers as $server) {
+      list($host, $port) = explode(":", $server);
+      $mc = new Memcached;
+      $mc->addServer($host, $port);
+
+      for ($slab=0; $slab<43; $slab++) {
+        $cmd = "printf \"stats cachedump {$slab} 0\nquit\n\" | nc $host $port |grep ^ITEM |cut -f2 -d\" \"";
+        $slab_keys = shell_exec($cmd);
+
+        foreach (explode("\n", $slab_keys) as $item) {
+          // Get item from memcache & store it
+          $data = $mc->get($item);
+          if ($data === false) {
+            continue;
+          }
+          $data = json_encode($data, JSON_PRETTY_PRINT);
+          if (strpos($data, $search_string) === false) {
+            continue;
+          }
+          echo $item . PHP_EOL;
+        }
+      }
+      unset($mc);
+    }
+  ' "$memcache_servers" "$GREPSTRING"
+  exit 0
+fi
+
 if [ $COMMAND = "dump:contents" ]
 then
   verbose "Dumping memcache contents..." >&2
@@ -475,11 +539,11 @@ then
           while ($line = fgets($pipes[1])) {
               // Process the line
               $line = trim($line);
-              $dest_file = "$dest_dir/$line";
+              $dest_file = "$dest_dir/{$line}.json";
               // Get item from memcache & store it
               $item = $mc->get($line);
               if ($item !== false) {
-                file_put_contents($dest_file, print_r($item, TRUE));
+                file_put_contents($dest_file, json_encode($item, JSON_PRETTY_PRINT));
               }
 
               $num_items++;
@@ -534,7 +598,7 @@ fi
 if [ "$COMMAND" = "report:drupal" ]
 then
 
-  header "Count by prefix"
+  header "Count by memcache_key_prefix"
   awk '{ print $2 }' $tmp_parsed |sort |uniq -c |sort -nr |head
 
   show_crosstab $tmp_parsed 2 3 Prefix Bin
@@ -571,7 +635,7 @@ then
   for server in $memcache_servers
   do
     memcache_server_split_host_port $server
-    echo "--  Server $memcache_server_host port $memcache_server_port"
+    echo "-- Server $memcache_server_host port $memcache_server_port"
 
     printf "stats slabs\nquit\n" |nc $memcache_server_host $memcache_server_port |grep "STAT [0-9]" |tr ':' ' ' |egrep "[^_](chunk_size|chunks_per_page|cmd_set|delete_hits|free_chunks|get_hits|mem_requested|total_chunks|total_pages|used_chunks)[^_]" >$tmp_stats
     show_crosstab $tmp_stats 3 2 Stats_slab Slab 4 _ROW_,chunk_size,chunks_per_page
