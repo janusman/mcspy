@@ -588,17 +588,19 @@ verbose "Parsed file is: $tmp_parsed"
 
 if [ $COMMAND = "dump:keys" ]
 then
+  header="Slab\tPrefix\tBin\tId\n"
   dumpfile=$tmp_parsed
   if [ $FLAG_RAW -eq 1 ]
   then
     dumpfile=$tmp_dump
+    header="Slab\t--\tItem\tSize/Age\n"
   fi
 
   if [ "$GREPSTRING" = "." ]
   then
-    (printf "Slab\tPrefix\tBin\tId\n"; cat $dumpfile) | column -t
+    (printf "$header"; cat $dumpfile) | column -t
   else
-    (printf "Slab\tPrefix\tBin\tId\n"; egrep --color "$GREPSTRING" $dumpfile) | column -t
+    (printf "$header"; egrep --color=always "$GREPSTRING" $dumpfile) | column -t
   fi
   exit 0
 fi
