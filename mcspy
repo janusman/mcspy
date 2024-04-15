@@ -326,9 +326,19 @@ function memcache_server_split_host_port() {
 }
 
 # Determine the memcache server
+memcache_servers=""
 if [ "${MEMCACHE_SERVER:-x}" = "x" ]
 then
-  memcache_servers=localhost:11211
+  #DEFAULTS.
+  memcache_servers=`php -r '
+    $file="/var/www/site-php/" . getenv("AH_SITE_NAME") . "/config.json";
+    if (file_exists($file)) {
+      $data = json_decode(file_get_contents($file), TRUE); $servers = implode(",", array_values($data["memcached_servers"])); echo $servers . PHP_EOL;
+    } else {
+      echo "localhost:11211" . PHP_EOL;
+    }
+    '`
+  verbose "Using autodetected memcache server list: $memcache_servers"
 else
   # Validate format
   if [ `echo "$MEMCACHE_SERVER" | egrep -c '^[1-9][0-9]*\.[0-9]*\.[0-9]*\.[0-9]*:[0-9][0-9][0-9]*( [0-9\.\:]*|)$'` -eq 0 ]
