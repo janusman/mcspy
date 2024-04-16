@@ -622,11 +622,17 @@ then
     header="Slab\t--\tItem\tSize/Age\n"
   fi
 
+  # Color only if script's output if stdout
+  color_arg="--color=always"
+  if [ -p /dev/stdout ]; then
+    color_arg=""
+  fi
+
   if [ "$GREPSTRING" = "." ]
   then
     (printf "$header"; cat $dumpfile) | column -t
   else
-    (printf "$header"; egrep --color=always "$GREPSTRING" $dumpfile) | column -t
+    (printf "$header"; egrep $color_arg "$GREPSTRING" $dumpfile) | column -t
   fi
   exit 0
 fi
