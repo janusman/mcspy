@@ -206,6 +206,7 @@ DUMP_FILE=""
 GREPSTRING="."
 FLAG_REFRESH=0
 FLAG_QUIET=0
+FLAG_SLAB=0
 FLAG_YES=0
 FLAG_MCROUTER=0
 COMMAND=""
@@ -256,6 +257,9 @@ do
       ;;
     --dump-file=*)
       DUMP_FILE=`echo "$1" |cut -f2 -d=`
+      ;;
+    --slab=*)
+      FLAG_SLAB=`echo "$1" |cut -f2 -d=`
       ;;
     --grep=* | --find=* | --search=*)
       GREPSTRING=`echo "$1" |cut -f2 -d=`
@@ -413,10 +417,16 @@ then
       memcache_server_split_host_port $server
       verbose "  ... server $memcache_server_host port $memcache_server_port"
       # Gather data from memcache
-      for i in {1..42}
-      do
-        printf "stats cachedump $i 0\nquit\n" | nc $memcache_server_host $memcache_server_port | grep -v "END" | awk '{ print "SLAB='$i' " $0 }' >>$tmp_dump
-      done
+      if [ $FLAG_SLAB -eq 0 ]
+      then
+        for i in {1..42}
+        do
+          printf "stats cachedump $i 0\nquit\n" | nc $memcache_server_host $memcache_server_port | grep -v "END" | awk '{ print "SLAB='$i' " $0 }' >>$tmp_dump
+        done
+      else
+        printf "stats cachedump $FLAG_SLAB 0\nquit\n" | nc $memcache_server_host $memcache_server_port | grep -v "END" | awk '{ print "SLAB='$FLAG_SLAB' " $0 }' >>$tmp_dump
+      fi
+
     done
     verbose "  Done."
   fi
@@ -448,8 +458,12 @@ function parse_dump() {
   #  (A) SLAB=7 ITEM alejandrotest%3Aconfig%3A-core.base_field_override.comment.comment.mail [227 b; 1541892267 s]
   #  (B) SLAB=2 ITEM hercampus_-cache_menu-.wildcard-admin_menu%3A821856%3A [1 b; 0 s]
   #
-
-  cat $1 | awk -F ' ' '
+  regex="^."
+  if [ $FLAG_SLAB != 0 ]
+  then
+    regex="^SLAB=$FLAG_SLAB "
+  fi
+  grep "$regex" $1 | awk -F ' ' '
   {
     slab=substr($1,index($1,"=")+1,2);
     piece=substr($3,1, index($3,"-"));
