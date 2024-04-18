@@ -577,7 +577,7 @@ then
           if (preg_match($search_regex, $text) == false) {
             continue;
           }
-          echo "MATCH: SERVER=$server SLAB=$slab $item " . PHP_EOL;
+          echo "MATCH: SERVER=$server SLAB=$slab $item\n";
         }
       }
       unset($mc);
