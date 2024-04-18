@@ -186,9 +186,8 @@ Commands:
 
 Optional arguments:
 --dump-folder=[file]      Specify the dump folder path. Default: $default_dump_folder
---grep=[searchstring]     Only report on cache IDs that match the searchstring. Default: '.' (match all)
+--key-grep=[pattern]      Only report on cache IDs that match the searchstring. Default: '.' (match all)
 --servers=[serverlist]    Specify the memcache servers. Format: host:port[,host:port[,...]]. Default is localhost.
---list-keys | dump-keys   Don't analyze, dump matching keys.
 --raw                     Only when --list-keys is used, don't parse keys.
 
 Examples:
@@ -203,7 +202,8 @@ EOF
 FLAG_LIST_KEYS=0
 FLAG_RAW=0
 DUMP_FILE=""
-GREPSTRING="."
+EXTRA_ARG=""
+ARG_KEY_GREP="."
 FLAG_REFRESH=0
 FLAG_QUIET=0
 FLAG_SLAB=0
@@ -246,10 +246,10 @@ do
     dump:contents | backup)
       COMMAND=dump:contents
       ;;
-    dump:keys | keys)
+    dump:keys | keys | name)
       COMMAND=dump:keys
       ;;
-    dump:item | item)
+    dump:item | item | get)
       COMMAND=dump:item
       ;;
     --dump-folder=*)
@@ -261,8 +261,8 @@ do
     --slab=*)
       FLAG_SLAB=`echo "$1" |cut -f2 -d=`
       ;;
-    --grep=* | --find=* | --search=*)
-      GREPSTRING=`echo "$1" |cut -f2 -d=`
+    --key-grep=* | --key-search=* | --keygrep=* | --keysearch=*)
+      ARG_KEY_GREP=`echo "$1" |cut -f2 -d=`
       ;;
     --servers=* | --server=*)
       MEMCACHE_SERVER=`echo "$1" |cut -f2 -d= | tr -s ',' ' '`
@@ -301,7 +301,7 @@ do
   # Done with options
     #Catchall
     *)
-      GREPSTRING="$1"
+      EXTRA_ARG="$1"
       ;;
   esac
 
@@ -382,7 +382,7 @@ tmp_stats="$DUMP_FOLDER/memcache-stats"
 # Dump a single item
 if [ $COMMAND = "dump:item" ]
 then
-  verbose "Dumping item $GREPSTRING"
+  verbose "Dumping item $EXTRA_ARG"
   if [ $FLAG_MCROUTER -eq 1 ]
   then
     memcache_servers=$mcrouter_server
@@ -401,7 +401,7 @@ then
       if (!$item) continue;
       print_r($item);
     }
-  ' "$memcache_servers" "$GREPSTRING"
+  ' "$memcache_servers" "$EXTRA_ARG"
   exit 0
 fi
 
@@ -465,7 +465,13 @@ function parse_dump() {
   then
     regex="^SLAB=$FLAG_SLAB "
   fi
-  grep "$regex" $1 | grep "$GREPSTRING" | awk -F ' ' '
+  grep="$ARG_KEY_GREP"
+  if [ "${grep:-.}" = . -a "${EXTRA_ARG:-x}" != x ]
+  then
+    grep="$EXTRA_ARG"
+  fi
+
+  grep "$regex" $1 | grep "$grep" | awk -F ' ' '
   {
     slab=substr($1,index($1,"=")+1,2);
     piece=substr($3,1, index($3,"-"));
@@ -489,16 +495,20 @@ function parse_dump() {
 
 if [ $COMMAND = "deep-search" ]
 then
-  if [ "${GREPSTRING:-x}" = "." -o "${GREPSTRING:-x}" = x ]
+  if [ "${EXTRA_ARG:-.}" = "." ]
   then
     show_error "Need to specify a search string"
     exit 1
   fi
-  if [ `echo "$GREPSTRING" |wc -c` -lt 4 ]
+  if [ `echo "${EXTRA_ARG:-.}" |wc -c` -lt 4 ]
   then
     show_error "Search string must be 4 or more characters."
     exit 1
   fi
+
+  verbose "Ready to search memcache items for..."
+  verbose "  Keys that match:     '$ARG_KEY_GREP'"
+  verbose "  Contents that match: '$EXTRA_ARG'"
 
   if [ $FLAG_YES -eq 0 ]
   then
@@ -507,10 +517,12 @@ then
     read dummy
   fi
 
-  verbose "Traversing all memcache items for '$GREPSTRING'..." >&2
+  verbose "Starting to traverse memcache..."
 
   php -r '
     $search_string = $argv[2];
+    $grep_key_pattern = $argv[3];
+    $arg_slab = $argv[4];
 
     // Split memcache server list
     $servers = explode(" ", $argv[1]);
@@ -519,8 +531,15 @@ then
       $mc = new Memcached;
       $mc->addServer($host, $port);
 
-      for ($slab=0; $slab<43; $slab++) {
-        $cmd = "printf \"stats cachedump {$slab} 0\nquit\n\" | nc $host $port |grep ^ITEM |cut -f2 -d\" \"";
+      $start_slab=0;
+      $end_slab=42;
+      if ($arg_slab != 0) {
+        $start_slab=$arg_slab;
+        $end_slab=$arg_slab;
+      }
+
+      for ($slab=$start_slab; $slab<=$end_slab; $slab++) {
+        $cmd = "printf \"stats cachedump {$slab} 0\nquit\n\" | nc $host $port |grep ^ITEM |grep \"$grep_key_pattern\" | cut -f2 -d\" \"";
         $slab_keys = shell_exec($cmd);
 
         foreach (explode("\n", $slab_keys) as $item) {
@@ -530,7 +549,7 @@ then
             continue;
           }
           $data = print_r($data, true);
-          if (strpos($data, $search_string) === false) {
+          if (preg_match("/{$search_string}/", $data) == false) {
             continue;
           }
           echo $item . PHP_EOL;
@@ -538,7 +557,7 @@ then
       }
       unset($mc);
     }
-  ' "$memcache_servers" "$GREPSTRING"
+  ' "$memcache_servers" "$EXTRA_ARG" "$ARG_KEY_GREP" "$FLAG_SLAB"
   exit 0
 fi
 
@@ -553,7 +572,7 @@ then
       $mc = new Memcached;
       $mc->addServer($host, $port);
 
-      $cmd = "grep \"'$GREPSTRING'\" '$tmp_dump' | awk \"{ print \\$3 }\"";
+      $cmd = "grep \"'$ARG_KEY_GREP'\" '$tmp_dump' | awk \"{ print \\$3 }\"";
       $descriptorspec = array(
         0 => array("pipe", "r"),  // stdin
         1 => array("pipe", "w"),  // stdout
@@ -628,11 +647,11 @@ then
     color_arg=""
   fi
 
-  if [ "$GREPSTRING" = "." ]
+  if [ "$ARG_KEY_GREP" = "." ]
   then
     (printf "$header"; cat $dumpfile) | column -t
   else
-    (printf "$header"; egrep $color_arg "$GREPSTRING" $dumpfile) | column -t
+    (printf "$header"; egrep $color_arg "$ARG_KEY_GREP" $dumpfile) | column -t
   fi
   exit 0
 fi
