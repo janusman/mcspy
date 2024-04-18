@@ -520,6 +520,12 @@ then
   verbose "Starting to traverse memcache..."
 
   php -r '
+
+    // Write to stderr
+    function verbose($msg) {
+      fwrite(STDERR, "$msg\n");
+    }
+
     $search_string = $argv[2];
     $grep_key_pattern = $argv[3];
     $arg_slab = $argv[4];
@@ -544,8 +550,12 @@ then
       for ($slab=$start_slab; $slab<=$end_slab; $slab++) {
         $cmd = "printf \"stats cachedump {$slab} 0\nquit\n\" | nc $host $port |grep ^ITEM |grep \"$grep_key_pattern\" | cut -f2 -d\" \"";
         $slab_keys = shell_exec($cmd) ?: "";
+        $items = explode("\n", $slab_keys);
+        if (count($items)>0) {
+          verbose("  ... Slab $slab found " . count($items) . " matching keys");
+        }
 
-        foreach (explode("\n", $slab_keys) as $item) {
+        foreach ($items as $item) {
           // Get item from memcache & store it
           $data = $mc->get($item);
           if ($data === false) {
