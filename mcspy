@@ -550,7 +550,7 @@ then
       }
 
       for ($slab=$start_slab; $slab<=$end_slab; $slab++) {
-        $cmd = "printf \"stats cachedump {$slab} 0\nquit\n\" | nc $host $port |grep ^ITEM |grep \"$grep_key_pattern\" | cut -f2 -d\" \"";
+        $cmd = "printf \"stats cachedump {$slab} 0\nquit\n\" | nc $host $port |grep ^ITEM |grep \"$grep_key_pattern\"";
         $slab_keys = trim(shell_exec($cmd) ?: "");
         if (!$slab_keys)
           continue;
@@ -566,8 +566,10 @@ then
         }
 
         foreach ($items as $item) {
+          // Explode the line into pieces
+          $parts = explode(" ", $item);
           // Get item from memcache & store it
-          $data = $mc->get($item);
+          $data = $mc->get($parts[1]);
           if ($data === false) {
             continue;
           }
@@ -575,12 +577,12 @@ then
           if (preg_match($search_regex, $text) == false) {
             continue;
           }
-          echo $item . PHP_EOL;
+          echo "MATCH: SERVER=$server SLAB=$slab $item " . PHP_EOL;
         }
       }
       unset($mc);
     }
-  ' "$memcache_servers" "$EXTRA_ARG" "$ARG_KEY_GREP" "$FLAG_SLAB"
+  ' "$memcache_servers" "$EXTRA_ARG" "$ARG_KEY_GREP" "$FLAG_SLAB" | grep --color "$ARG_KEY_GREP"
   exit 0
 fi
 
