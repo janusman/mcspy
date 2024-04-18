@@ -337,7 +337,7 @@ then
   memcache_servers=`php -r '
     $file="/var/www/site-php/" . getenv("AH_SITE_NAME") . "/config.json";
     if (file_exists($file)) {
-      $data = json_decode(file_get_contents($file), TRUE); $servers = implode(",", array_values($data["memcached_servers"])); echo $servers . PHP_EOL;
+      $data = json_decode(file_get_contents($file), TRUE); $servers = implode(" ", array_values($data["memcached_servers"])); echo $servers . PHP_EOL;
     } else {
       echo "localhost:11211" . PHP_EOL;
     }
