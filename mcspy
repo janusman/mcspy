@@ -551,7 +551,7 @@ then
 
       for ($slab=$start_slab; $slab<=$end_slab; $slab++) {
         $cmd = "printf \"stats cachedump {$slab} 0\nquit\n\" | nc $host $port |grep ^ITEM |grep \"$grep_key_pattern\" | cut -f2 -d\" \"";
-        $slab_keys = trim(shell_exec($cmd)) ?: "";
+        $slab_keys = trim(shell_exec($cmd) ?: "");
         if (!$slab_keys)
           continue;
 
