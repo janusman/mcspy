@@ -520,10 +520,11 @@ then
   verbose "Starting to traverse memcache..."
 
   php -r '
-
     // Write to stderr
     function verbose($msg) {
-      fwrite(STDERR, "$msg\n");
+      if (getenv("FLAG_QUIET")==0) {
+        fwrite(STDERR, "$msg\n");
+      }
     }
 
     $search_string = $argv[2];
@@ -551,7 +552,7 @@ then
         $cmd = "printf \"stats cachedump {$slab} 0\nquit\n\" | nc $host $port |grep ^ITEM |grep \"$grep_key_pattern\" | cut -f2 -d\" \"";
         $slab_keys = shell_exec($cmd) ?: "";
         $items = explode("\n", $slab_keys);
-        if (count($items)>0) {
+        if ($grep_key_pattern != "." && count($items)>0) {
           verbose("  ... Slab $slab found " . count($items) . " matching keys");
         }
 
