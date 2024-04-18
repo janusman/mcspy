@@ -525,7 +525,7 @@ then
     $arg_slab = $argv[4];
 
     // Escape the regex
-    $search_regex = "/" . preg_quote($search_string) . "/mi";
+    $search_regex = "/" . preg_quote($search_string, "/") . "/mi";
 
     // Split memcache server list
     $servers = explode(" ", $argv[1]);
