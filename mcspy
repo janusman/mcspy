@@ -524,6 +524,9 @@ then
     $grep_key_pattern = $argv[3];
     $arg_slab = $argv[4];
 
+    // Escape the regex
+    $search_regex = "/" . preg_quote($search_string) . "/mi";
+
     // Split memcache server list
     $servers = explode(" ", $argv[1]);
     foreach ($servers as $server) {
@@ -540,7 +543,7 @@ then
 
       for ($slab=$start_slab; $slab<=$end_slab; $slab++) {
         $cmd = "printf \"stats cachedump {$slab} 0\nquit\n\" | nc $host $port |grep ^ITEM |grep \"$grep_key_pattern\" | cut -f2 -d\" \"";
-        $slab_keys = shell_exec($cmd);
+        $slab_keys = shell_exec($cmd) ?: "";
 
         foreach (explode("\n", $slab_keys) as $item) {
           // Get item from memcache & store it
@@ -548,8 +551,8 @@ then
           if ($data === false) {
             continue;
           }
-          $data = print_r($data, true);
-          if (preg_match("/{$search_string}/", $data) == false) {
+          $text = print_r($data, true);
+          if (preg_match($search_regex, $text) == false) {
             continue;
           }
           echo $item . PHP_EOL;
