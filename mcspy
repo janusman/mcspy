@@ -180,8 +180,8 @@ Commands:
  report:drupal              Count items per slab and per Drupal multisite (memcache_key_prefix). Alias: report
  report:stats [keypattern]  Report memcache slab/item statistics. Alias: stats
  dump:keys [keypattern]     Dump memcache keys. Alias: keys
- dump:contents              Dump the memcache items, each into a single file, onto the output folder (see --dump-folder)
- dump:item {key}            Fetches and dumps a single item from memcache. Alias: item
+ dump:files                 Dump the memcache items, each into a single file, onto the output folder (see --dump-folder)
+ dump:item {key}            Fetches and dumps a single item from memcache. Aliases: item | get
  deep-search {string}       Scans all memcache items searching for 'string'. Alias: deep
 
 Optional arguments:
@@ -243,8 +243,8 @@ do
     report:stats | stats)
       COMMAND=report:stats
       ;;
-    dump:contents | backup)
-      COMMAND=dump:contents
+    dump:files | backup)
+      COMMAND=dump:files
       ;;
     dump:keys | keys | name)
       COMMAND=dump:keys
@@ -586,9 +586,9 @@ then
   exit 0
 fi
 
-if [ $COMMAND = "dump:contents" ]
+if [ $COMMAND = "dump:files" ]
 then
-  verbose "Dumping memcache contents..." >&2
+  verbose "Dumping memcache contents into files..." >&2
   php -r '
     // Split memcache server list
     $servers = explode(" ", $argv[1]);
@@ -672,11 +672,18 @@ then
     color_arg=""
   fi
 
-  if [ "$ARG_KEY_GREP" = "." ]
+
+  grep="$ARG_KEY_GREP"
+  if [ "${grep:-.}" = . -a "${EXTRA_ARG:-x}" != x ]
+  then
+    grep="$EXTRA_ARG"
+  fi
+
+  if [ "$grep" = "." ]
   then
     (printf "$header"; cat $dumpfile) | column -t
   else
-    (printf "$header"; egrep $color_arg "$ARG_KEY_GREP" $dumpfile) | column -t
+    (printf "$header"; egrep $color_arg "$grep" $dumpfile) | column -t
   fi
   exit 0
 fi
