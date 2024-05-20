@@ -802,8 +802,8 @@ then
   # If we have many servers, ask for only one.
   if [ `echo "$memcache_servers" | grep -c ' '` -gt 0 ]
   then
-    show_error "You must specify a server with the --servers=[IP-of-server] argument"
-    exit 1
+    show_warn "Multiple servers: using first instance"
+    memcache_servers=`echo ${memcache_servers} | cut -f1 -d' '`
   fi
 
   show_warn "Hit ENTER to start reporting, CTRL-C to break"
