@@ -800,7 +800,7 @@ then
   fi
 
   # If we have many servers, ask for only one.
-  if [ `echo "$memcache_servers" | grep -c .` -gt 1 ]
+  if [ `echo "$memcache_servers" | grep -c ' '` -gt 0 ]
   then
     show_error "You must specify a server with the --servers=[IP-of-server] argument"
     exit 1
