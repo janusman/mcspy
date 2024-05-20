@@ -397,7 +397,7 @@ then
       echo "localhost:11211" . PHP_EOL;
     }
     '`
-  verbose "Using autodetected memcache server list: $memcache_servers"
+  verbose "Autodetected memcache server list from /var/www/site-php/$AH_SITE_NAME/config.json"
 else
   # Validate format
   if [ `echo "$MEMCACHE_SERVER" | egrep -c '^[1-9][0-9]*\.[0-9]*\.[0-9]*\.[0-9]*:[0-9][0-9][0-9]*( [0-9\.\:]*|)$'` -eq 0 ]
@@ -792,12 +792,12 @@ fi
 if [ $COMMAND = "report:realtime" ]
 then
   mcdir=/tmp/mcspy;
+  mcfile=$mcdir/memcached-tool
   if [ ! -r $mcdir/memcached-tool ]
   then
     mkdir $mcdir 2>/dev/null;
-    cd $mcdir;
-    curl https://raw.githubusercontent.com/memcached/memcached/master/scripts/memcached-tool -o memcached-tool;
-    chmod +x memcached-tool;
+    curl https://raw.githubusercontent.com/memcached/memcached/master/scripts/memcached-tool -o $mcfile 2>/dev/null;
+    chmod +x $mcfile;
   fi
 
   # If we have many servers, ask for only one.
@@ -810,7 +810,7 @@ then
   show_warn "Hit ENTER to start reporting, CTRL-C to break"
   read dummy
 
-  cmd="$mcdir/memcached-tool ${memcache_servers}";
+  cmd="$mcfile ${memcache_servers}";
 
   echo $cmd;
   watch -n1 -d "$cmd"
