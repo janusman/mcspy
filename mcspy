@@ -514,13 +514,12 @@ else
   FLAG_NEED_PARSING=0
 fi
 
-if [ ! -s $tmp_dump ]
+if [ ! -s $tmp_dump -a $FLAG_NEED_PARSING -eq 1 ]
 then
   show_warn "Dumpfile has no data. Perhaps memcache is not running or has no data."
   cleanup
   exit 0
 fi
-
 
 if [ $COMMAND = "deep-search" ]
 then
