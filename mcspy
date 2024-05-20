@@ -181,7 +181,8 @@ Commands:
  report:stats [keypattern]  Report memcache slab/item statistics. Alias: stats
  dump:keys [keypattern]     Dump memcache keys. Alias: keys
  dump:files                 Dump the memcache items, each into a single file, onto the output folder (see --dump-folder)
- dump:item {key}            Fetches and dumps a single item from memcache. Aliases: item | get
+ item:get {key}             Fetches and dumps a single item from memcache. Aliases: item | get
+ item:delete {key}          Deletes item from all memcache servers. Aliases: del | delete
  deep-search {string}       Scans all memcache items searching for 'string'. Alias: deep
 
 Optional arguments:
@@ -249,8 +250,11 @@ do
     dump:keys | keys | name)
       COMMAND=dump:keys
       ;;
-    dump:item | item | get)
-      COMMAND=dump:item
+    item:get | item | get)
+      COMMAND=item:get
+      ;;
+    item:delete | del | delete)
+      COMMAND=item:delete
       ;;
     --dump-folder=*)
       DUMP_FOLDER=`echo "$1" |cut -f2 -d=`
@@ -380,7 +384,7 @@ tmp_parsed_prefix="$DUMP_FOLDER/memcache-key-dump-parsed-prefix.txt"
 tmp_stats="$DUMP_FOLDER/memcache-stats"
 
 # Dump a single item
-if [ $COMMAND = "dump:item" ]
+if [ $COMMAND = "item:get" ]
 then
   verbose "Dumping item $EXTRA_ARG"
   if [ $FLAG_MCROUTER -eq 1 ]
@@ -400,6 +404,29 @@ then
 
       if (!$item) continue;
       print_r($item);
+    }
+  ' "$memcache_servers" "$EXTRA_ARG"
+  exit 0
+fi
+
+# Delete a single item
+if [ $COMMAND = "item:get" ]
+then
+  verbose "Deleting item $EXTRA_ARG"
+  if [ $FLAG_MCROUTER -eq 1 ]
+  then
+    memcache_servers=$mcrouter_server
+  fi
+  php -r '
+    // Split memcache server list
+    $servers = explode(" ", $argv[1]);
+    foreach ($servers as $server) {
+      file_put_contents("php://stderr","-- Item from server $server --" . PHP_EOL);
+      list($host, $port) = explode(":", $server);
+      $mc = new Memcached;
+      $mc->addServer($host, $port);
+      $item = $mc->delete($argv[2]);
+      unset($mc);
     }
   ' "$memcache_servers" "$EXTRA_ARG"
   exit 0
@@ -656,6 +683,7 @@ fi
 parse_dump $tmp_dump >$tmp_parsed
 verbose "Parsed file is: $tmp_parsed"
 
+# Dump keys
 if [ $COMMAND = "dump:keys" ]
 then
   header="Slab\tPrefix\tBin\tId\n"
@@ -671,7 +699,6 @@ then
   if [ -p /dev/stdout ]; then
     color_arg=""
   fi
-
 
   grep="$ARG_KEY_GREP"
   if [ "${grep:-.}" = . -a "${EXTRA_ARG:-x}" != x ]
