@@ -172,14 +172,14 @@ function verbose() {
 
 function showhelp() {
   cat <<EOF
-Inspects memcache usage by Drupal.
+${COLOR_GRAY}Inspects memcache usage by Drupal.
 
 Usage: $0 command [arguments/flags]
 
 Commands:
  report:drupal              Count items per slab and per Drupal multisite (memcache_key_prefix). Alias: report
  report:stats [keypattern]  Report memcache slab/item statistics. Alias: stats
- report:realtime            Realtime list of slab statistics (memcache-tool). Alias: realtime | rt
+ report:realtime            Realtime list of slab statistics (memcache-tool-ng). Alias: realtime | rt
  dump:keys [keypattern]     Dump memcache keys. Alias: keys
  dump:files                 Dump the memcache items, each into a single file, onto the output folder (see --dump-folder)
  item:get {key}             Fetches and dumps a single item from memcache. Aliases: item | get
@@ -793,11 +793,12 @@ fi
 if [ $COMMAND = "report:realtime" ]
 then
   mcdir=/tmp/mcspy;
-  mcfile=$mcdir/memcached-tool
-  if [ ! -r $mcdir/memcached-tool ]
+  mcfile=$mcdir/memcached-tool-ng
+  if [ ! -r $mcfile ]
   then
     mkdir $mcdir 2>/dev/null;
-    curl https://raw.githubusercontent.com/memcached/memcached/master/scripts/memcached-tool -o $mcfile 2>/dev/null;
+    #curl https://raw.githubusercontent.com/memcached/memcached/master/scripts/memcached-tool -o $mcfile 2>/dev/null;
+    curl "https://raw.githubusercontent.com/davidfoliveira/memcached-tool-ng/master/memcached-tool-ng" -o $mcfile 2>/dev/null;
     chmod +x $mcfile;
   fi
 
@@ -814,5 +815,5 @@ then
   cmd="$mcfile ${memcache_servers}";
 
   echo $cmd;
-  watch -n1 -d "$cmd"
+  watch -n1 -d --color "$cmd"
 fi
