@@ -189,11 +189,11 @@ Commands:
 Optional arguments:
 --dump-folder=[file]      Specify the dump folder path. Default: $default_dump_folder
 --key-grep=[pattern]      Only report on cache IDs that match the searchstring. Default: '.' (match all)
---servers=[serverlist]    Specify the memcache servers. Format: host:port[,host:port[,...]]. Default is localhost.
+--servers=[serverlist]    Specify the memcache servers. Format: host:port[,host:port[,...]]. Default value:  localhost:11211
 --raw                     Only when --list-keys is used, don't parse keys.
 
 Examples:
-  $0 dump:keys --servers=1.0.0.1:11211,1.0.0.2:11211
+  $0 dump:keys --servers=1.0.0.1:11211,1.0.0.2:11211${COLOR_NONE}
 EOF
 }
 
@@ -278,7 +278,7 @@ do
   case $1 in
 
   # Normal option processing
-    -h | --help)
+    help | -h | --help)
       # usage and help
       showhelp
       exit
@@ -534,8 +534,11 @@ then
   fi
 
   verbose "Ready to search memcache items for..."
-  verbose "  Keys that match:     '$ARG_KEY_GREP'"
-  verbose "  Contents that match: '$EXTRA_ARG'"
+  verbose "    Contents that match: '$EXTRA_ARG'"
+  if [ "$ARG_KEY_GREP" != . ]
+  then
+    verbose "   Only keys that match: '$ARG_KEY_GREP'"
+  fi
 
   if [ $FLAG_YES -eq 0 ]
   then
