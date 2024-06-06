@@ -2,12 +2,19 @@
 <?php
 
 /**
- * Usage: php -f ./time-memcache.php [optional-memcache-hostname] [optional-slab-number]
+ * Usage: php -f ./time-memcache.php [optional-memcache-hostname] [--slab=slab-number]
+ *
+ * Arguments:
+ *   --slab=N              # Only test slab number N (usually 1-35). Default is test slabs 1-35.
+ *   --num-items=N         # Limit to read/writing N memcache items.
+ *                         # Default is "as many as can fit" on 1MB per slab.
+ *   --key-prefix=[string] # Change prefix for item names. Default is "test_". Can be used
+ *                         #   to force eviction by writing items with different names.
  *
  * Examples:
- *   php -f ./time-memcache.php              # Will use localhost as the memcache endpoint
- *   php -f ./time-memcache.php 1.2.3.4      # Looks for memcache server at IP 1.2.3.4
- *   php -f ./time-memcache.php localhost 5  # Runs tests only on memcache slab #5
+ *   php -f ./time-memcache.php                     # Will use localhost as the memcache endpoint
+ *   php -f ./time-memcache.php 1.2.3.4             # Looks for memcache server at IP 1.2.3.4
+ *   php -f ./time-memcache.php localhost --slab=5  # Runs tests only on memcache slab #5
  *
  */
 
