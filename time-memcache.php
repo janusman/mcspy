@@ -59,6 +59,26 @@ $slab_item_size = [
     35 => 202152,
 ];
 
+function show_help() {
+    echo <<<HEREDOC
+
+Usage: php -f ./time-memcache.php [optional-memcache-hostname] [--slab=slab-number]
+
+ Arguments:
+   --slab=N              # Only test slab number N (usually 1-35). Default is test slabs 1-35.
+   --num-items=N         # Limit to read/writing N memcache items.
+                         # Default is "as many as can fit" on 1MB per slab.
+   --key-prefix=[string] # Change prefix for item names. Default is "test_". Can be used
+                         #   to force eviction by writing items with different names.
+
+ Examples:
+   php -f ./time-memcache.php                     # Will use localhost as the memcache endpoint
+   php -f ./time-memcache.php 1.2.3.4             # Looks for memcache server at IP 1.2.3.4
+   php -f ./time-memcache.php localhost --slab=5  # Runs tests only on memcache slab #5
+
+HEREDOC;
+}
+
 function get_key_prefix() {
     global $arg_key_prefix;
     return empty($arg_key_prefix) ? "test" : $arg_key_prefix;
@@ -138,22 +158,30 @@ $arguments = $argv;
 $dummy = array_shift($arguments);
 while (sizeof($arguments)>0) {
     $arg = array_shift($arguments);
+    // Help?
+    if (preg_match('/^--help$/', $arg) || $arg == "help") {
+        show_help();
+        die();
+    }
     // IP address
     if (preg_match('/^[1-9][0-9]*\.[0-9]+\.[0-9]+\.[0-9]+$/', $arg) || $arg == "localhost") {
         $arg_memcache_host = $arg;
         echo "Using $arg_memcache_host as the memcache hostname.\n";
         continue;
     }
+    // --slab=N argument
     if (preg_match('/^--slab=[1-9][0-9]*$/', $arg)) {
         list( ,$arg_slab) = explode("=", $arg);
         echo "Using $arg_slab as the slab to check.\n";
         continue;
     }
+    // --num-items=N argument
     if (preg_match('/^--(num|num[_-]items)=[1-9][0-9]*$/', $arg)) {
         list( ,$arg_num_items) = explode("=", $arg);
         echo "Using $arg_num_items as number of items to write per slab.\n";
         continue;
     }
+    // --key-prefix="xyz" argument
     if (preg_match('/^--(prefix|key_prefix|key-prefix|item-prefix)=[a-zA-Z0-9]*$/', $arg)) {
         list( ,$arg_key_prefix) = explode("=", $arg);
         echo "Using '$arg_key_prefix' as the key prefix.\n";
