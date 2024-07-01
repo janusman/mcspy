@@ -397,6 +397,10 @@ then
       echo "localhost:11211" . PHP_EOL;
     }
     '`
+  if [ "$memcache_servers" != "localhost:11211" ]
+  then
+    verbose "Detected memcache servers from /var/www/site-php/${AH_SITE_NAME}/config.json"
+  fi
 else
   # Validate format
   if [ `echo "$MEMCACHE_SERVER" | egrep -c '^[1-9][0-9]*\.[0-9]*\.[0-9]*\.[0-9]*:[0-9][0-9][0-9]*( [0-9\.\:]*|)$'` -eq 0 ]
