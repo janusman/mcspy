@@ -95,11 +95,31 @@ function get_slab_item_value($slab) {
     return str_repeat("A", get_slab_item_size($slab) - ITEM_OVERHEAD);
 }
 
+function track_errors($memcache_op, $command) {
+    static $errors = ['get' => 0, 'set' => 0];
+    if ($memcache_op != "get" && $memcache_op != "set") {
+        throw new Exception("track_errors(): Invalid memcache operation $memcache_op");
+    }
+    if ($command != "get" && $command != "reset" && $command != "track") {
+        throw new Exception("track_errors(): Invalid command $command");
+    }
+    if ($command == "reset") {
+        $errors[$memcache_op] = 0;
+    }
+    if ($command == "track") {
+        $errors[$memcache_op]++;
+    }
+    #if ($command == "get") {
+        return $errors[$memcache_op];
+    #}
+}
+
 function do_get($key, $expected_value) {
     global $memcached;
     $value = $memcached->get($key);
     if ($value === false) {
         echo "  ERROR: Failed to get($key), the value should be " . strlen($expected_value) . " bytes\n";
+        track_errors("get", "track");
     } else
     if ($value != $expected_value) {
         echo "  ERROR: Value does not match for key: $key with length " . strlen($expected_value) . " bytes\n";
@@ -108,7 +128,10 @@ function do_get($key, $expected_value) {
 
 function do_set($key, $value) {
     global $memcached;
-    $memcached->set($key, $value);
+    $result = $memcached->set($key, $value);
+    if ($result === false) {
+        track_errors("set", "track");
+    }
 }
 
 function do_slab($slab, $operation) {
@@ -121,14 +144,17 @@ function do_slab($slab, $operation) {
     $num_items = empty($arg_num_items) ? get_slab_item_max($slab) : $arg_num_items;
     $value = get_slab_item_value($slab);
     $setStartTime = microtime(true);
+    track_errors($operation, "reset");
     for ($i=0; $i<$num_items; $i++) {
         $function = "do_{$operation}";
         $key = "{$key_prefix}_s{$slab}_n{$i}";
         $function($key, $value);
     }
+    $error_count = track_errors($operation, "get");
     $setEndTime = microtime(true);
     $slab_elapsed = ($setEndTime - $setStartTime);
     echo "  $operation $num_items items";
+    echo " (Error count: $error_count)";
     echo " (Avg time per $operation: " . round(1000 * $slab_elapsed/$num_items, 2) . " ms)\n";
     return [$slab_elapsed, $num_items];
 }
