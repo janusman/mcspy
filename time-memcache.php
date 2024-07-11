@@ -135,7 +135,7 @@ function do_set($key, $value) {
 }
 
 function do_slab($slab, $operation) {
-    global $slab_item_size, $arg_num_items;
+    global $slab_item_size, $arg_num_items, $arg_verbose;
     $slab_elapsed = 0;
     $key_prefix = get_key_prefix();
     $item_size = get_slab_item_size($slab);
@@ -148,6 +148,9 @@ function do_slab($slab, $operation) {
     for ($i=0; $i<$num_items; $i++) {
         $function = "do_{$operation}";
         $key = "{$key_prefix}_s{$slab}_n{$i}";
+        if ($arg_verbose) {
+            echo "  [debug] key=$key\n";
+        }
         $function($key, $value);
     }
     $error_count = track_errors($operation, "get");
@@ -179,6 +182,7 @@ $arg_memcache_host = "localhost";
 $arg_slab = false;
 $arg_key_prefix = '';
 $arg_num_items = false;
+$arg_verbose = false;
 
 $arguments = $argv;
 $dummy = array_shift($arguments);
@@ -188,6 +192,11 @@ while (sizeof($arguments)>0) {
     if (preg_match('/^--help$/', $arg) || $arg == "help") {
         show_help();
         die();
+    }
+    // Verbose
+     if (preg_match('/^-v$/', $arg)) {
+        $arg_verbose = true;
+        continue;
     }
     // IP address
     if (preg_match('/^[1-9][0-9]*\.[0-9]+\.[0-9]+\.[0-9]+$/', $arg) || $arg == "localhost") {
