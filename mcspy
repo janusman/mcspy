@@ -22,7 +22,7 @@ cd $SCRIPT_FOLDER
 default_dump_folder="/tmp/mcspy-dump"
 
 function cleanup() {
-  verbose "Cleaning up temporary files"
+  output "Cleaning up temporary files"
   rm 2>/dev/null $tmp_parsed_prefix $tmp_stats
 }
 
@@ -164,6 +164,13 @@ function show_error() {
 }
 
 function verbose() {
+  if [ $FLAG_QUIET -eq 0 -a $FLAG_VERBOSE -eq 1 ]
+  then
+    echo "${COLOR_GRAY}$1${COLOR_NONE}" 1>&2
+  fi
+}
+
+function output() {
   if [ $FLAG_QUIET -eq 0 ]
   then
     echo "${COLOR_GRAY}$1${COLOR_NONE}" 1>&2
@@ -268,6 +275,7 @@ FLAG_YES=0
 FLAG_MCROUTER=0
 COMMAND=""
 FLAG_NEED_PARSING=1
+FLAG_VERBOSE=0
 ok=1
 DUMP_FOLDER=$default_dump_folder
 
@@ -284,7 +292,7 @@ do
       exit
       ;;
     -v | -vvv | --verbose)
-      VERBOSE=1
+      FLAG_VERBOSE=1
       ;;
   # ...
 
@@ -399,7 +407,7 @@ then
     '`
   if [ "$memcache_servers" != "localhost:11211" ]
   then
-    verbose "Detected memcache servers from /var/www/site-php/${AH_SITE_NAME}/config.json"
+    output "Detected memcache servers from /var/www/site-php/${AH_SITE_NAME}/config.json"
   fi
 else
   # Validate format
@@ -417,10 +425,10 @@ then
   FLAG_MCROUTER=1
   mcrouter_server="$memcache_servers"
   memcache_servers=`mcrouter_get_servers`
-  verbose "Detected mcrouter at localhost:11211, available memcache instances: $memcache_servers"
+  output "Detected mcrouter at localhost:11211, available memcache instances: $memcache_servers"
 fi
 
-verbose "Using memcache server list: $memcache_servers"
+output "Using memcache server list: $memcache_servers"
 
 if [ ! -r $DUMP_FOLDER ]
 then
@@ -440,7 +448,7 @@ tmp_stats="$DUMP_FOLDER/memcache-stats"
 # Dump a single item
 if [ $COMMAND = "item:get" ]
 then
-  verbose "Dumping item $EXTRA_ARG"
+  output "Dumping item $EXTRA_ARG"
   if [ $FLAG_MCROUTER -eq 1 ]
   then
     memcache_servers=$mcrouter_server
@@ -466,7 +474,7 @@ fi
 # Delete a single item
 if [ $COMMAND = "item:delete" ]
 then
-  verbose "Deleting item $EXTRA_ARG"
+  output "Deleting item $EXTRA_ARG"
   if [ $FLAG_MCROUTER -eq 1 ]
   then
     memcache_servers=$mcrouter_server
@@ -490,13 +498,13 @@ if [ "$COMMAND" != "deep-search" -a "$COMMAND" != "report:stats" -a "$COMMAND" !
 then
   if [ $FLAG_REFRESH -eq 1 -o ! -s $tmp_dump ]
   then
-    verbose "Dumping list of all memcache keys to file $tmp_dump"
+    output "Dumping list of all memcache keys to file $tmp_dump"
     rm -f $tmp_dump 2>/dev/null
 
     for server in $memcache_servers
     do
       memcache_server_split_host_port $server
-      verbose "  ... server $memcache_server_host port $memcache_server_port"
+      output "  ... server $memcache_server_host port $memcache_server_port"
       # Gather data from memcache
       if [ $FLAG_SLAB -eq 0 ]
       then
@@ -509,9 +517,9 @@ then
       fi
 
     done
-    verbose "  Done."
+    output "  Done."
   else
-    verbose "Using existing key dump $tmp_dump"
+    output "Using existing key dump $tmp_dump"
   fi
 else
   FLAG_NEED_PARSING=0
@@ -537,11 +545,11 @@ then
     exit 1
   fi
 
-  verbose "Ready to search memcache items for..."
-  verbose "    Contents that match: '$EXTRA_ARG'"
+  output "Ready to search memcache items for..."
+  output "    Contents that match: '$EXTRA_ARG'"
   if [ "$ARG_KEY_GREP" != . ]
   then
-    verbose "   Only keys that match: '$ARG_KEY_GREP'"
+    output "   Only keys that match: '$ARG_KEY_GREP'"
   fi
 
   if [ $FLAG_YES -eq 0 ]
@@ -551,7 +559,7 @@ then
     read dummy
   fi
 
-  verbose "Starting to traverse memcache..."
+  output "Starting to traverse memcache..."
 
   export FLAG_QUIET
   php -r '
@@ -622,7 +630,7 @@ fi
 
 if [ $COMMAND = "dump:files" ]
 then
-  verbose "Dumping memcache contents into files..." >&2
+  output "Dumping memcache contents into files..." >&2
   php -r '
     // Split memcache server list
     $servers = explode(" ", $argv[1]);
@@ -692,10 +700,10 @@ then
   num_total=`grep -c . $tmp_dump`
   #num_hashed=`egrep -c "ITEM [0-9a-z]{40} " $tmp`
 
-  verbose "Total memcache items: $num_total"
+  output "Total memcache items: $num_total"
 
   parse_dump $tmp_dump >$tmp_parsed
-  verbose "Parsed file is: $tmp_parsed"
+  output "Parsed file is: $tmp_parsed"
 fi
 
 # Dump keys
@@ -765,6 +773,29 @@ fi
 
 if [ $COMMAND = "report:stats" ]
 then
+
+  # Get config
+  header "Configuration"
+
+  for server in $memcache_servers
+  do
+    memcache_server_split_host_port $server
+    echo "-- Server $memcache_server_host port $memcache_server_port"
+    printf "stats settings\nquit\n" |nc $memcache_server_host $memcache_server_port
+    echo ""
+  done
+
+  # Get runtime stats
+  header "Runtime statistics"
+
+  for server in $memcache_servers
+  do
+    memcache_server_split_host_port $server
+    echo "-- Server $memcache_server_host port $memcache_server_port"
+    printf "stats\nquit\n" |nc $memcache_server_host $memcache_server_port
+    echo ""
+  done
+
   # Get slab stats
   header "SLAB statistics"
 

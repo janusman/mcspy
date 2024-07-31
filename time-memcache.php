@@ -70,6 +70,7 @@ Usage: php -f ./time-memcache.php [optional-memcache-hostname] [--slab=slab-numb
                          # Default is "as many as can fit" on 1MB per slab.
    --key-prefix=[string] # Change prefix for item names. Default is "test_". Can be used
                          #   to force eviction by writing items with different names.
+   --sleep-ms=[N]        # Sleep for N miliseconds (+/- 50% random) between operations
 
  Examples:
    php -f ./time-memcache.php                     # Will use localhost as the memcache endpoint
@@ -132,6 +133,7 @@ function do_set($key, $value) {
     if ($result === false) {
         track_errors("set", "track");
     }
+    do_sleep();
 }
 
 function do_slab($slab, $operation) {
@@ -174,6 +176,14 @@ function do_all_slabs($operation) {
     return [$elapsed, $total_items];
 }
 
+function do_sleep() {
+    global $arg_sleep;
+    if ($arg_sleep) {
+        $ms = ($arg_sleep / 2) + rand(0, $arg_sleep);
+        usleep($ms * 1000);
+    }
+}
+
 
 ## MAIN ####################################
 
@@ -183,6 +193,7 @@ $arg_slab = false;
 $arg_key_prefix = '';
 $arg_num_items = false;
 $arg_verbose = false;
+$arg_sleep = 0;
 
 $arguments = $argv;
 $dummy = array_shift($arguments);
@@ -220,6 +231,12 @@ while (sizeof($arguments)>0) {
     if (preg_match('/^--(prefix|key_prefix|key-prefix|item-prefix)=[a-zA-Z0-9]*$/', $arg)) {
         list( ,$arg_key_prefix) = explode("=", $arg);
         echo "Using '$arg_key_prefix' as the key prefix.\n";
+        continue;
+    }
+    // --sleep-ms=xyz argument
+    if (preg_match('/^--(sleep|sleep-ms|sleep_ms)=[0-9]*$/', $arg)) {
+        list( ,$arg_sleep) = explode("=", $arg);
+        echo "Using '$arg_sleep' as the sleep time (ms).\n";
         continue;
     }
     // What's left?
