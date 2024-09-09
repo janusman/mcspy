@@ -42,7 +42,7 @@ $slab_item_size = [
     18 => 4544,
     19 => 5680,
     20 => 7104,
-    21 => 8800, #8908,
+    21 => 8880, #8908,
     22 => 11104,
     23 => 13880, #13926
     24 => 17352, #17352
@@ -57,6 +57,10 @@ $slab_item_size = [
     33 => 129376,
     34 => 161720,
     35 => 202152,
+    36 => 252696,
+    37 => 315872,
+    38 => 394840,
+    39 => 524288
 ];
 
 function show_help() {
@@ -90,7 +94,7 @@ function get_slab_item_size($slab) {
     return $slab_item_size[$slab];
 }
 function get_slab_item_max($slab) {
-    return intval(PAGE_SIZE / (get_slab_item_size($slab) + ITEM_OVERHEAD)) - 1;
+    return intval(PAGE_SIZE / get_slab_item_size($slab));
 }
 function get_slab_item_value($slab) {
     return str_repeat("A", get_slab_item_size($slab) - ITEM_OVERHEAD);
