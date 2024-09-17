@@ -304,7 +304,10 @@ do
     deep-search | deep-scan | deep)
       COMMAND=deep-search
       ;;
-    report:drupal | report)
+    report:config | report:settings | config | settings)
+      COMMAND=report:config
+      ;;
+    report:drupal | report | analyze | patterns)
       COMMAND=report:drupal
       ;;
     report:stats | stats)
@@ -498,7 +501,7 @@ then
   exit 0
 fi
 
-if [ "$COMMAND" != "deep-search" -a "$COMMAND" != "report:stats" -a "$COMMAND" != "report:realtime" ]
+if [ "$COMMAND" != "deep-search" -a "$COMMAND" != "report:stats" -a "$COMMAND" != "report:realtime" -a "$COMMAND" != "report:config" ]
 then
   if [ $FLAG_REFRESH -eq 1 -o ! -s $tmp_dump ]
   then
@@ -775,11 +778,10 @@ then
   exit 0
 fi
 
-if [ $COMMAND = "report:stats" ]
+if [ $COMMAND = "report:config" ]
 then
-
   # Get config
-  header "Configuration"
+  header "Memcache server configuration"
 
   for server in $memcache_servers
   do
@@ -788,6 +790,13 @@ then
     printf "stats settings\nquit\n" |nc $memcache_server_host $memcache_server_port
     echo ""
   done
+
+  cleanup
+  exit 0
+fi
+
+if [ $COMMAND = "report:stats" ]
+then
 
   # Get runtime stats
   header "Runtime statistics"
@@ -801,7 +810,7 @@ then
   done
 
   # Get slab stats
-  header "SLAB statistics"
+  header "Slab statistics"
 
   for server in $memcache_servers
   do
