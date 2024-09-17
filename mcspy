@@ -272,6 +272,7 @@ FLAG_REFRESH=0
 FLAG_QUIET=0
 FLAG_SLAB=0
 FLAG_YES=0
+FLAG_WATCH=0
 FLAG_MCROUTER=0
 COMMAND=""
 FLAG_NEED_PARSING=1
@@ -341,6 +342,9 @@ do
       ;;
     --refresh | --cleanup)
       FLAG_REFRESH=1
+      ;;
+    --watch | -w)
+      FLAG_WATCH=1
       ;;
     --quiet | -s | -q)
       FLAG_QUIET=1
@@ -844,11 +848,16 @@ then
     memcache_servers=`echo ${memcache_servers} | cut -f1 -d' '`
   fi
 
-  show_warn "Hit ENTER to start reporting, CTRL-C to break"
-  read dummy
+  cmd="$mcscript ${memcache_servers}";
 
-  cmd="$mcfile ${memcache_servers}";
+  if [ $FLAG_WATCH -eq 1 ]
+  then
+    echo "Command: $cmd";
+    show_warn "Hit ENTER to start reporting, CTRL-C to break"
+    read dummy
 
-  echo $cmd;
-  watch -n1 -d --color "$cmd"
+    watch -n1 -d --color "$cmd"
+  else
+    $cmd
+  fi
 fi
