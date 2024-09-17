@@ -823,14 +823,14 @@ then
   done
 
   # More item stats
-  header "ITEM statistics"
+  header "Item statistics"
   for server in $memcache_servers
   do
     memcache_server_split_host_port $server
     echo "--  Server $memcache_server_host port $memcache_server_port"
 
     printf "stats items\nquit\n" |nc $memcache_server_host $memcache_server_port |grep "STAT items:[0-9]" |tr ':' ' ' |egrep "[^_]age|evicted|evicted_time|evicted_unfetched|expired_unfetched|number|outofmemory|reclaimed[^_]" >$tmp_stats
-    show_crosstab $tmp_stats 4 3 Stats_etc Slab 5 _ROW_,age,age_hot,age_warm,evicted_time
+    show_crosstab $tmp_stats 4 3 Stats_etc Slab 5 _ROW_,age,number_hot,age_hot,age_warm,evicted_time
     echo ""
   done
 
@@ -841,13 +841,13 @@ fi
 if [ $COMMAND = "report:realtime" ]
 then
   mcdir=/tmp/mcspy;
-  mcfile=$mcdir/memcached-tool-ng
-  if [ ! -r $mcfile ]
+  mcscript=$mcdir/memcached-tool-ng
+  if [ ! -r $mcscript ]
   then
     mkdir $mcdir 2>/dev/null;
-    #curl https://raw.githubusercontent.com/memcached/memcached/master/scripts/memcached-tool -o $mcfile 2>/dev/null;
-    curl "https://raw.githubusercontent.com/davidfoliveira/memcached-tool-ng/master/memcached-tool-ng" -o $mcfile 2>/dev/null;
-    chmod +x $mcfile;
+    #curl https://raw.githubusercontent.com/memcached/memcached/master/scripts/memcached-tool -o $mcscript 2>/dev/null;
+    curl "https://raw.githubusercontent.com/davidfoliveira/memcached-tool-ng/master/memcached-tool-ng" -o $mcscript 2>/dev/null;
+    chmod +x $mcscript;
   fi
 
   # If we have many servers, ask for only one.
