@@ -417,10 +417,11 @@ then
     output "Detected memcache servers from /var/www/site-php/${AH_SITE_NAME}/config.json"
   fi
 
-  if [ `echo "$memcache_servers" | grep -c '.svc.service.local'` -gt 0 ]
+  if [ `echo "$memcache_servers" | grep -c '.svc.cluster.local'` -gt 0 ]
   then
-    memcache_servers=`dig +short $memcache_servers |awk '{ print $0 ":11211" }'`
-    output "Detected memcache servers from memcached.\$AH_SITE_NAME.svc.service.local DNS entry"
+    hostname=`echo $memcache_servers |cut -f1 -d:`
+    memcache_servers=`dig +short $hostname |awk '{ print $0 ":11211" }'`
+    output "Detected memcache servers from memcached.\$AH_SITE_NAME.svc.cluster.local DNS entry"
   fi
 else
   # Validate format
