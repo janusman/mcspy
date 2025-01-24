@@ -51,8 +51,8 @@ function show_crosstab() {
     totals_exclude="${7:-x}"
   fi
 
-  echo "${COLOR_GREEN}Crosstab: number of items by $header_cols/$header_rows"
-  echo "-------------------------------------------------------------${COLOR_NONE}"
+  header "Crosstab: number of items by $header_cols/$header_rows"
+  #echo "-------------------------------------------------------------${COLOR_NONE}"
   (cat $input_file |awk -v sum_field=$sum_field -v method=${method} -v colfield=$colfield -v rowfield=$rowfield -v header_cols="$header_cols" -v header_rows="$header_rows" -v totals_exclude=",$totals_exclude," '
   function track(col,row,val) {
     #print col row val;
@@ -758,6 +758,10 @@ then
 
   header "Count by memcache_key_prefix"
   awk '{ print $2 }' $tmp_parsed |sort |uniq -c |sort -nr |head
+
+  header "Count by Bin"
+  awk '{ print $3 }' $tmp_parsed |sort |uniq -c |sort -nr |head
+
 
   show_crosstab $tmp_parsed 2 3 Prefix Bin
   show_crosstab $tmp_parsed 2 1 Prefix Slab
