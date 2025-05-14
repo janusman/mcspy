@@ -198,6 +198,8 @@ Optional arguments:
 --key-grep=[pattern]      Only report on cache IDs that match the searchstring. Default: '.' (match all)
 --servers=[serverlist]    Specify the memcache servers. Format: host:port[,host:port[,...]]. Default value:  localhost:11211
 --raw                     Only when --list-keys is used, don't parse keys.
+--no-refresh              Re-uses cached list of keys between invocations (can be defined by --dump-folder).
+                          Alias: --cached
 
 Examples:
   $0 dump:keys --servers=1.0.0.1:11211,1.0.0.2:11211${COLOR_NONE}
@@ -268,7 +270,7 @@ FLAG_RAW=0
 DUMP_FILE=""
 EXTRA_ARG=""
 ARG_KEY_GREP="."
-FLAG_REFRESH=0
+FLAG_REFRESH=1
 FLAG_QUIET=0
 FLAG_SLAB=0
 FLAG_YES=0
@@ -345,6 +347,9 @@ do
       ;;
     --refresh | --cleanup)
       FLAG_REFRESH=1
+      ;;
+    --no-refresh | --cached)
+      FLAG_REFRESH=0
       ;;
     --watch | -w)
       FLAG_WATCH=1
