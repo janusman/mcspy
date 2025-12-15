@@ -906,7 +906,10 @@ then
     # Print out the options.
     foreach ($options as $name => $option) {
       echo "$name [$option] => " . var_export($m->getOption($option), TRUE) . PHP_EOL;
-    }'
+    }
+
+    echo "\nPersistent connection: " . var_export($m->isPersistent(), TRUE) . PHP_EOL;
+    '
   exit $?
 fi
 
