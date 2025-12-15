@@ -210,12 +210,26 @@ EOF
 }
 
 function mcrouter_get_servers() {
-  printf "get __mcrouter__.preprocessed_config\nquit\n" | nc -v -w1 -q1 "localhost" "11211" 2>&1 2>/dev/null |grep 11211 |cut -f2 -d'"' |cut -f1,2 -d: | paste -s -d' '
+  printf "get __mcrouter__.preprocessed_config\nquit\n" | nc -v -w1 -q1 "localhost" "11211" 2>&1 2>/dev/null |grep 11211 |cut -f2 -d'"' |egrep -o '^.*:11211' | tr -d '"' | paste -s -d' '
 }
 
 function memcache_server_split_host_port() {
-  memcache_server_host=`echo $1 |cut -f1 -d:`
-  memcache_server_port=`echo $1 |cut -f2 -d:`
+  local input="$1"
+
+  # Regex breakdown:
+  # ^\[?          - Optional opening bracket (for IPv6)
+  # ([^\]]+)      - Group 1: Capture everything that isn't a closing bracket (The IP)
+  # \]?           - Optional closing bracket
+  # :             - The literal colon separator
+  # ([0-9]+)$     - Group 2: Capture the trailing digits (The Port)
+
+  if [[ $input =~ ^\[?([^\]]+)\]?:([0-9]+)$ ]]; then
+    memcache_server_host="${BASH_REMATCH[1]}"
+    memcache_server_port="${BASH_REMATCH[2]}"
+  else
+    echo "Error: Invalid format" >&2
+    return 1
+  fi
 }
 
 # Parse all items
