@@ -16,6 +16,7 @@ COLOR_BACKGROUND_GREEN=$(tput setab 2)
 COLOR_BACKGROUND_YELLOW=$(tput setab 3)
 COLOR_BACKGROUND_WHITE=$(tput setab 7)
 
+CURRENT_FOLDER=`pwd`
 SCRIPT_FOLDER="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd $SCRIPT_FOLDER
 
@@ -192,6 +193,8 @@ Commands:
  item:get {key}             Fetches and dumps a single item from memcache. Aliases: item | get
  item:delete {key}          Deletes item from all memcache servers. Aliases: del | delete
  deep-search {string}       Scans all memcache items searching for 'string'. Alias: deep
+ config:drupal              Show memcache PECL client configuration used by Drupal. Alias: drupal-config | drupal-settings
+ config:server              Show Memcached daemon configuration. Alias: server-config | server-settings
 
 Optional arguments:
 --dump-folder=[file]      Specify the dump folder path. Default: $default_dump_folder
@@ -306,8 +309,11 @@ do
     deep-search | deep-scan | deep)
       COMMAND=deep-search
       ;;
-    report:config | report:settings | config | settings)
-      COMMAND=report:config
+    config:server | server-config | server-settings)
+      COMMAND=config:server
+      ;;
+    config:drupal | drupal-config | drupal-settings)
+      COMMAND=config:drupal
       ;;
     report:drupal | report | analyze | patterns)
       COMMAND=report:drupal
@@ -362,6 +368,9 @@ do
       ;;
     --yes | -y )
       FLAG_YES=1
+      ;;
+    --uri=*)
+      URI="--uri="`echo "$1" |cut -f2 -d=`
       ;;
     --*)
       # error unknown (long) option $1
@@ -513,7 +522,7 @@ then
   exit 0
 fi
 
-if [ "$COMMAND" != "deep-search" -a "$COMMAND" != "report:stats" -a "$COMMAND" != "report:realtime" -a "$COMMAND" != "report:config" ]
+if [ "$COMMAND" != "deep-search" -a "$COMMAND" != "report:stats" -a "$COMMAND" != "report:realtime" -a "$COMMAND" != "config:server" -a "$COMMAND" != "config:drupal" ]
 then
   if [ $FLAG_REFRESH -eq 1 -o ! -s $tmp_dump ]
   then
@@ -794,7 +803,7 @@ then
   exit 0
 fi
 
-if [ $COMMAND = "report:config" ]
+if [ $COMMAND = "config:server" ]
 then
   # Get config
   header "Memcache server configuration"
@@ -809,6 +818,96 @@ then
 
   cleanup
   exit 0
+fi
+
+if [ $COMMAND = "config:drupal" ]
+then
+  # Get config
+  header "Drupal Memcached PECL library runtime configuration"
+
+  cd $CURRENT_FOLDER
+  drush ${URI} ev '
+    $options = [
+      "OPT_AUTO_EJECT_HOSTS" => Memcached::OPT_AUTO_EJECT_HOSTS,
+      "OPT_BINARY_PROTOCOL" => Memcached::OPT_BINARY_PROTOCOL,
+      "OPT_BUFFER_WRITES" => Memcached::OPT_BUFFER_WRITES,
+      "OPT_CACHE_LOOKUPS" => Memcached::OPT_CACHE_LOOKUPS,
+      "OPT_CONNECT_TIMEOUT" => Memcached::OPT_CONNECT_TIMEOUT,
+      "OPT_COMPRESSION" => Memcached::OPT_COMPRESSION,
+      "OPT_DEAD_TIMEOUT" => Memcached::OPT_DEAD_TIMEOUT,
+      "OPT_DISTRIBUTION" => Memcached::OPT_DISTRIBUTION,
+      "OPT_LIBKETAMA_HASH" => Memcached::OPT_LIBKETAMA_HASH,
+      "OPT_NO_BLOCK" => Memcached::OPT_NO_BLOCK,
+      "OPT_NOREPLY" => Memcached::OPT_NOREPLY,
+      "OPT_NUMBER_OF_REPLICAS" => Memcached::OPT_NUMBER_OF_REPLICAS,
+      "OPT_POLL_TIMEOUT" => Memcached::OPT_POLL_TIMEOUT,
+      "OPT_RECV_TIMEOUT" => Memcached::OPT_RECV_TIMEOUT,
+      "OPT_REMOVE_FAILED_SERVERS" => Memcached::OPT_REMOVE_FAILED_SERVERS,
+      "OPT_RETRY_TIMEOUT" => Memcached::OPT_RETRY_TIMEOUT,
+      "OPT_SEND_TIMEOUT" => Memcached::OPT_SEND_TIMEOUT,
+      "OPT_SERVER_FAILURE_LIMIT" => Memcached::OPT_SERVER_FAILURE_LIMIT,
+      "OPT_SERVER_TIMEOUT_LIMIT" => Memcached::OPT_SERVER_TIMEOUT_LIMIT,
+      "OPT_SOCKET_RECV_SIZE" => Memcached::OPT_SOCKET_RECV_SIZE,
+      "OPT_SOCKET_SEND_SIZE" => Memcached::OPT_SOCKET_SEND_SIZE,
+      "OPT_TCP_KEEPALIVE" => Memcached::OPT_TCP_KEEPALIVE,
+      "OPT_TCP_NODELAY" => Memcached::OPT_TCP_NODELAY,
+      "OPT_USE_UDP" => Memcached::OPT_USE_UDP,
+      "OPT_VERIFY_KEY" => Memcached::OPT_VERIFY_KEY
+    ];
+
+    if (!class_exists("Memcached")) {
+      print "The PHP PECL memcached extension is not available.\n";
+      return;
+    }
+
+    try {
+      if (class_exists("\Drupal")) {
+        /* D8 */
+        $m = \Drupal::service("memcache.factory")->get()->getMemcache();
+      }
+      else {
+        /* D7 */
+        // Note: We need the full Drupal bootstrap for the caching system to be initialized.
+
+        // 1. Get the class used for the 'cache' bin.
+        // This is usually MemCacheDrupal, which holds the Memcached client.
+        global $conf;
+        $cache_class = !empty($conf["cache_class_cache"]) ? $conf["cache_class_cache"] : "MemCacheDrupal";
+        $cache_bin_id = "cache";
+
+        // 2. Load the cache backend object for the cache bin.
+        $cache_backend = _cache_get_object($cache_bin_id);
+
+        // 3. Attempt to access the internal Memcached client object.
+        if ($cache_backend instanceof MemCacheDrupal) {
+          // In MemCacheDrupal (and its children), the client is stored internally.
+          // We force access to the protected/private client object.
+          $reflector = new ReflectionProperty($cache_backend, "memcache");
+          $reflector->setAccessible(TRUE);
+          $m = $reflector->getValue($cache_backend);
+        }
+        /* elseif (class_exists("Memcached")) {
+            // Fallback: Just create a default client, this is less reliable but useful.
+            $m = new Memcached("default");
+            print "Warning: Could not access Drupal specific Memcache client. Checking default pooled client.\n";
+          }
+        */
+        else {
+          print "Error: Cache backend for {$cache_bin_id} is not a recognized Memcache class.\n";
+          return;
+        }
+
+      }
+    } catch (Exception $e) {
+      print "Error: Could not access Memcached client: " . $e->getMessage() . "\n";
+      return;
+    }
+
+    # Print out the options.
+    foreach ($options as $name => $option) {
+      echo "$name [$option] => " . var_export($m->getOption($option), TRUE) . PHP_EOL;
+    }'
+  exit $?
 fi
 
 if [ $COMMAND = "report:stats" ]
