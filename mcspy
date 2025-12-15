@@ -860,55 +860,72 @@ then
       return;
     }
 
-    try {
-      if (class_exists("\Drupal")) {
-        /* D8 */
-        $m = \Drupal::service("memcache.factory")->get()->getMemcache();
+    function get_drupal_memcache_connection() {
+      try {
+        if (class_exists("\Drupal")) {
+          /* D8 */
+          $m = \Drupal::service("memcache.factory")->get()->getMemcache();
+        }
+        else {
+          /* D7 */
+          // Note: We need the full Drupal bootstrap for the caching system to be initialized.
+
+          // 1. Get the class used for the 'cache' bin.
+          // This is usually MemCacheDrupal, which holds the Memcached client.
+          global $conf;
+          $cache_class = !empty($conf["cache_class_cache"]) ? $conf["cache_class_cache"] : "MemCacheDrupal";
+          $cache_bin_id = "cache";
+
+          // 2. Load the cache backend object for the cache bin.
+          $cache_backend = _cache_get_object($cache_bin_id);
+
+          // 3. Attempt to access the internal Memcached client object.
+          if ($cache_backend instanceof MemCacheDrupal) {
+            // In MemCacheDrupal (and its children), the client is stored internally.
+            // We force access to the protected/private client object.
+            $reflector = new ReflectionProperty($cache_backend, "memcache");
+            $reflector->setAccessible(TRUE);
+            $m = $reflector->getValue($cache_backend);
+          }
+          /* elseif (class_exists("Memcached")) {
+              // Fallback: Just create a default client, this is less reliable but useful.
+              $m = new Memcached("default");
+              print "Warning: Could not access Drupal specific Memcache client. Checking default pooled client.\n";
+            }
+          */
+          else {
+            print "Error: Cache backend for {$cache_bin_id} is not a recognized Memcache class.\n";
+            return false;
+          }
+
+        }
+      } catch (Exception $e) {
+        print "Error: Could not access Memcached client: " . $e->getMessage() . "\n";
+        return false;
+      }
+      return $m;
+    }
+
+    foreach (["Drupal","Raw PHP"] as $context) {
+      print "=== Context: $context ===\n";
+      if ($context == "Drupal") {
+        $m = get_drupal_memcache_connection();
       }
       else {
-        /* D7 */
-        // Note: We need the full Drupal bootstrap for the caching system to be initialized.
-
-        // 1. Get the class used for the 'cache' bin.
-        // This is usually MemCacheDrupal, which holds the Memcached client.
-        global $conf;
-        $cache_class = !empty($conf["cache_class_cache"]) ? $conf["cache_class_cache"] : "MemCacheDrupal";
-        $cache_bin_id = "cache";
-
-        // 2. Load the cache backend object for the cache bin.
-        $cache_backend = _cache_get_object($cache_bin_id);
-
-        // 3. Attempt to access the internal Memcached client object.
-        if ($cache_backend instanceof MemCacheDrupal) {
-          // In MemCacheDrupal (and its children), the client is stored internally.
-          // We force access to the protected/private client object.
-          $reflector = new ReflectionProperty($cache_backend, "memcache");
-          $reflector->setAccessible(TRUE);
-          $m = $reflector->getValue($cache_backend);
-        }
-        /* elseif (class_exists("Memcached")) {
-            // Fallback: Just create a default client, this is less reliable but useful.
-            $m = new Memcached("default");
-            print "Warning: Could not access Drupal specific Memcache client. Checking default pooled client.\n";
-          }
-        */
-        else {
-          print "Error: Cache backend for {$cache_bin_id} is not a recognized Memcache class.\n";
-          return;
-        }
-
+        $m = new Memcached("default");
       }
-    } catch (Exception $e) {
-      print "Error: Could not access Memcached client: " . $e->getMessage() . "\n";
-      return;
-    }
 
-    # Print out the options.
-    foreach ($options as $name => $option) {
-      echo "$name [$option] => " . var_export($m->getOption($option), TRUE) . PHP_EOL;
+      # Print out the options.
+      if ($m) {
+        foreach ($options as $name => $option) {
+          echo "$name [$option] => " . var_export($m->getOption($option), TRUE) . PHP_EOL;
+        }
+        echo "\nPersistent connection: " . var_export($m->isPersistent(), TRUE) . PHP_EOL;
+      }
+      else {
+        print "No Memcached client available.\n";
+      }
     }
-
-    echo "\nPersistent connection: " . var_export($m->isPersistent(), TRUE) . PHP_EOL;
     '
   exit $?
 fi
