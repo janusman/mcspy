@@ -539,7 +539,7 @@ then
   exit 0
 fi
 
-if [ "$COMMAND" != "deep-search" -a "$COMMAND" != "report:stats" -a "$COMMAND" != "report:realtime" -a "$COMMAND" != "config:server" -a "$COMMAND" != "config:drupal" ]
+if [ "$COMMAND" != "deep-search" -a "$COMMAND" != "report:stats" -a "$COMMAND" != "report:realtime" -a "$COMMAND" != "config:server" -a "$COMMAND" != "config:drupal" -a "$COMMAND" != "report:realtime2" ]
 then
   if [ $FLAG_REFRESH -eq 1 -o ! -s $tmp_dump ]
   then
