@@ -1008,7 +1008,7 @@ then
     memcache_servers=`echo ${memcache_servers} | cut -f1 -d' '`
   fi
 
-  header "Realtime slab statistics (refreshes every 1 second, CTRL-C to break)"
+  header "Per-slab statistics"
   memcache_server_split_host_port $memcache_servers
 
   #|egrep '[0-9][0-9]*:(number|age|evicted|evicted_time) '

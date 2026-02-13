@@ -214,7 +214,9 @@ while (sizeof($arguments)>0) {
         continue;
     }
     // IP address
-    if (preg_match('/^[1-9][0-9]*\.[0-9]+\.[0-9]+\.[0-9]+$/', $arg) || $arg == "localhost") {
+    if (preg_match('/^[1-9][0-9]*\.[0-9]+\.[0-9]+\.[0-9]+$/', $arg)
+        || preg_match('/^[a-z][a-z0-9\.-]+$/', $arg)
+        || $arg == "localhost") {
         $arg_memcache_host = $arg;
         echo "Using $arg_memcache_host as the memcache hostname.\n";
         continue;
