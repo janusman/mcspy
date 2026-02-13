@@ -1005,6 +1005,9 @@ then
 
   #|egrep '[0-9][0-9]*:(number|age|evicted|evicted_time) '
   printf "stats items\nquit\n" |nc $memcache_server_host $memcache_server_port  |cut -f2- -d':'  |egrep '[0-9][0-9]*:(number|age|evicted|evicted_time) ' |tr ':' ' ' >$tmp_stats
+
+  printf "stats slabs\nquit\n" |nc $memcache_server_host $memcache_server_port  |cut -f2- -d' ' |egrep '[0-9][0-9]*:(total_pages|chunk_size|[a-z]*_hits|cmd_set) ' |tr ':' ' ' >>$tmp_stats
+
   # Exclude all rows from totals (_ROW_)
   show_crosstab $tmp_stats 2 1 Stats Slab 3 _ROW_
   cleanup
