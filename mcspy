@@ -456,7 +456,7 @@ then
   fi
 else
   # Validate format
-  if [ `echo "$MEMCACHE_SERVER" | egrep -c '^[1-9][0-9]*\.[0-9]*\.[0-9]*\.[0-9]*:[0-9][0-9][0-9]*( [0-9\.\:]*|)$'` -eq 0 ]
+  if [ `echo "$MEMCACHE_SERVER" | egrep -c '^([1-9][0-9]*\.[0-9]*\.[0-9]*\.[0-9]*:[0-9][0-9][0-9]*|[a-z][a-z0-9\.-]*:[0-9][0-9][0-9]*)( [0-9\.\:]*|)$'` -eq 0 ]
   then
     show_error "ERROR: Bad memcache server list \"$MEMCACHE_SERVER\"."
     exit 1
