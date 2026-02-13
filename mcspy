@@ -52,7 +52,7 @@ function show_crosstab() {
     totals_exclude="${7:-x}"
   fi
 
-  header "Crosstab: number of items by $header_cols/$header_rows"
+  #header "Crosstab: number of items by $header_cols/$header_rows"
   #echo "-------------------------------------------------------------${COLOR_NONE}"
   (cat $input_file |awk -v sum_field=$sum_field -v method=${method} -v colfield=$colfield -v rowfield=$rowfield -v header_cols="$header_cols" -v header_rows="$header_rows" -v totals_exclude=",$totals_exclude," '
   function track(col,row,val) {
@@ -337,6 +337,9 @@ do
       ;;
     report:realtime | realtime | rt)
       COMMAND=report:realtime
+      ;;
+    report:realtime2 | rt2)
+      COMMAND=report:realtime2
       ;;
     dump:files | backup)
       COMMAND=dump:files
@@ -987,6 +990,27 @@ then
   exit 0
 fi
 
+if [ $COMMAND = "report:realtime2" ]
+then
+
+  # If we have many servers, ask for only one.
+  if [ `echo "$memcache_servers" | grep -c ' '` -gt 0 ]
+  then
+    show_warn "Multiple servers: using first instance"
+    memcache_servers=`echo ${memcache_servers} | cut -f1 -d' '`
+  fi
+
+  header "Realtime slab statistics (refreshes every 1 second, CTRL-C to break)"
+  memcache_server_split_host_port $memcache_servers
+
+  #|egrep '[0-9][0-9]*:(number|age|evicted|evicted_time) '
+  printf "stats items\nquit\n" |nc $memcache_server_host $memcache_server_port  |cut -f2- -d':'  |egrep '[0-9][0-9]*:(number|age|evicted|evicted_time) ' |tr ':' ' ' >$tmp_stats
+  # Exclude all rows from totals (_ROW_)
+  show_crosstab $tmp_stats 2 1 Stats Slab 3 _ROW_
+  cleanup
+  exit 0
+fi
+
 if [ $COMMAND = "report:realtime" ]
 then
   mcdir=/tmp/mcspy;
@@ -994,7 +1018,6 @@ then
   if [ ! -r $mcscript ]
   then
     mkdir $mcdir 2>/dev/null;
-    #curl https://raw.githubusercontent.com/memcached/memcached/master/scripts/memcached-tool -o $mcscript 2>/dev/null;
     curl "https://raw.githubusercontent.com/davidfoliveira/memcached-tool-ng/master/memcached-tool-ng" -o $mcscript 2>/dev/null;
     chmod +x $mcscript;
   fi
