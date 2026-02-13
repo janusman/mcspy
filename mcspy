@@ -202,6 +202,7 @@ Optional arguments:
 --servers=[serverlist]    Specify the memcache servers. Format: host:port[,host:port[,...]]. Default value:  localhost:11211
 --raw                     Only when --list-keys is used, don't parse keys.
 --no-refresh              Re-uses cached list of keys between invocations (can be defined by --dump-folder).
+--no-ansi                 Don't use ANSI colors in output (for better readability when piping output to other tools).
                           Alias: --cached
 
 Examples:
@@ -385,6 +386,13 @@ do
       ;;
     --yes | -y )
       FLAG_YES=1
+      ;;
+    --no-ansi )
+      COLOR_NONE=""
+      COLOR_RED=""
+      COLOR_YELLOW=""
+      COLOR_GREEN=""
+      COLOR_GRAY=""
       ;;
     --uri=*)
       URI="--uri="`echo "$1" |cut -f2 -d=`
@@ -996,7 +1004,7 @@ then
   # If we have many servers, ask for only one.
   if [ `echo "$memcache_servers" | grep -c ' '` -gt 0 ]
   then
-    show_warn "Multiple servers: using first instance"
+    show_warn "Multiple servers: using first instance (use --servers=[server:port] to specify a different one)"
     memcache_servers=`echo ${memcache_servers} | cut -f1 -d' '`
   fi
 
@@ -1010,7 +1018,7 @@ then
 
   # Exclude all rows from totals (_ROW_)
   show_crosstab $tmp_stats 2 1 Stats Slab 3 _ROW_
-  cleanup
+  #cleanup
   exit 0
 fi
 
